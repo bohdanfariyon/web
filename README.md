@@ -15,13 +15,13 @@
 ```python
 from abc import ABC, abstractmethod
 
-# Продукт
+
 class Transport(ABC):
     @abstractmethod
     def deliver(self) -> str:
         pass
 
-# Конкретні продукти
+
 class Truck(Transport):
     def deliver(self) -> str:
         return "Доставка сушею у коробці."
@@ -128,7 +128,6 @@ class XmlToJsonAdapter:
 
     def request_analysis(self, analytics_lib: JSONAnalyticsLib):
         xml_content = self.xml_source.get_xml_data()
-        # Спрощена логіка конвертації XML -> JSON
         value = xml_content.split("<value>")[1].split("</value>")[0]
         json_data = f'{{"value": {value}}}'
         
@@ -147,7 +146,26 @@ adapter.request_analysis(analytics)
 
 * **Інтеграція legacy-коду:** Коли потрібно змусити старий код працювати з новим без його повної переробки.
 * **Робота з сторонніми API:** Коли формат даних сервісу не збігається з внутрішніми стандартами вашого проекту.
+```mermaid
+classDiagram
+    class Client {
+    }
+    class TargetInterface {
+        <<interface>>
+        +request_analysis()
+    }
+    class XmlToJsonAdapter {
+        -xml_source: XMLData
+        +request_analysis()
+    }
+    class XMLData {
+        +get_xml_data()
+    }
 
+    Client --> TargetInterface
+    TargetInterface <|.. XmlToJsonAdapter
+    XmlToJsonAdapter o-- XMLData : адаптує
+```
 ---
 
 ## 3. Поведінковий шаблон: Стратегія (Strategy)
@@ -165,7 +183,7 @@ adapter.request_analysis(analytics)
 ```python
 from abc import ABC, abstractmethod
 
-# Інтерфейс стратегії
+
 class RouteStrategy(ABC):
     @abstractmethod
     def build_route(self, start: str, end: str):
@@ -207,6 +225,28 @@ nav.execute_route("Центр", "Вокзал")
 * **Варіативність алгоритмів:** Коли вам потрібно використовувати різні версії алгоритму залежно від ситуації (наприклад, різні способи сортування даних або методи аутентифікації).
 * **Очищення коду від розгалужень:** Якщо ви бачите багато `if` для вибору поведінки об'єкта.
 
+```mermaid
+classDiagram
+    class Navigator {
+        -strategy: RouteStrategy
+        +set_strategy(strategy: RouteStrategy)
+        +execute_route()
+    }
+    class RouteStrategy {
+        <<interface>>
+        +build_route()*
+    }
+    class RoadStrategy {
+        +build_route()
+    }
+    class WalkingStrategy {
+        +build_route()
+    }
+
+    Navigator o-- RouteStrategy : використовує
+    RouteStrategy <|-- RoadStrategy
+    RouteStrategy <|-- WalkingStrategy
+```
 ---
 
 ## Результати роботи прикладів
