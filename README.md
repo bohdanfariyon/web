@@ -65,7 +65,7 @@ client_code(SeaLogistics())
 
 * **Системи з багатьма типами об'єктів:** Коли заздалегідь невідомо, об'єкти яких типів доведеться створювати.
 * **Бібліотеки та фреймворки:** Коли ви хочете надати користувачам можливість розширювати ваші компоненти.
-
+```mermaid
 classDiagram
     class Logistics {
         <<abstract>>
@@ -95,6 +95,7 @@ classDiagram
     Transport <|-- Ship
     RoadLogistics ..> Truck : створює
     SeaLogistics ..> Ship : створює
+```
 ---
 
 ## 2. Структурний шаблон: Адаптер (Adapter)
