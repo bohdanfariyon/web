@@ -1,256 +1,237 @@
 
+## 1. Породжувальний: Фабричний метод (Factory Method)
 
-## 1. Породжувальний шаблон: Фабричний метод (Factory Method)
+**Приклад: Система сповіщень (Notifications)**
 
 ### Проблема
 
-Уявіть, що ви створюєте логістичну програму. Спочатку вона працює лише з вантажівками. Весь ваш код прив'язаний до класу `Truck`. Згодом вам потрібно додати морські перевезення. Якщо код "захардкоджений" під вантажівки, додавання кораблів вимагатиме переписування всієї логіки створення об'єктів.
+Ваш застосунок має надсилати вітання користувачам. Спочатку ви надсилали тільки **Email**. Потім додався **SMS**, а в планах — **Push-повідомлення**. Якщо ви будете створювати об'єкти через `if-else` прямо в основному коді, він стане "брудним" і важким для розширення.
 
 ### Ідея реалізації
 
-Шаблон визначає інтерфейс для створення об'єкта, але дозволяє підкласам вирішувати, який саме клас інстанціювати. Це дозволяє делегувати логіку створення конкретним "фабрикам".
+Ми створюємо загальний інтерфейс `Notification` і "фабрику", яка вирішує, який саме тип повідомлення створити.
 
-### Код реалізації (Python)
+### Код (Python)
 
 ```python
 from abc import ABC, abstractmethod
 
-
-class Transport(ABC):
+class Notification(ABC):
     @abstractmethod
-    def deliver(self) -> str:
+    def send(self, message: str):
         pass
 
+class EmailNotification(Notification):
+    def send(self, message: str):
+        return f"Надсилаю Email: {message}"
 
-class Truck(Transport):
-    def deliver(self) -> str:
-        return "Доставка сушею у коробці."
+class SmsNotification(Notification):
+    def send(self, message: str):
+        return f"Надсилаю SMS: {message}"
 
-class Ship(Transport):
-    def deliver(self) -> str:
-        return "Доставка морем у контейнері."
-
-
-class Logistics(ABC):
+class NotificationFactory(ABC):
     @abstractmethod
-    def create_transport(self) -> Transport:
+    def create_notification(self) -> Notification:
         pass
 
-    def plan_delivery(self) -> str:
-        transport = self.create_transport()
-        return f"Логістика каже: {transport.deliver()}"
+    def notify(self, message: str):
+        notifier = self.create_notification()
+        print(notifier.send(message))
+
+class EmailFactory(NotificationFactory):
+    def create_notification(self):
+        return EmailNotification()
+
+class SmsFactory(NotificationFactory):
+    def create_notification(self):
+        return SmsNotification()
 
 
-class RoadLogistics(Logistics):
-    def create_transport(self) -> Transport:
-        return Truck()
-
-class SeaLogistics(Logistics):
-    def create_transport(self) -> Transport:
-        return Ship()
-
-
-def client_code(creator: Logistics):
-    print(creator.plan_delivery())
-
-print("Тест RoadLogistics:")
-client_code(RoadLogistics())
-
-print("\nТест SeaLogistics:")
-client_code(SeaLogistics())
+factories = [EmailFactory(), SmsFactory()]
+for f in factories:
+    f.notify("Ваше замовлення готове!")
 
 ```
 
-### Де застосовувати
-
-* **Системи з багатьма типами об'єктів:** Коли заздалегідь невідомо, об'єкти яких типів доведеться створювати.
-* **Бібліотеки та фреймворки:** Коли ви хочете надати користувачам можливість розширювати ваші компоненти.
+**Де застосовувати:** Будь-яка система, де типи об'єктів можуть додаватися з часом (платіжні методи, типи файлів, звіти).
 ```mermaid
 classDiagram
-    class Logistics {
+    class NotificationFactory {
         <<abstract>>
-        +plan_delivery()
-        +create_transport()* Transport
+        +notify(message: String)
+        +create_notification()* Notification
     }
-    class RoadLogistics {
-        +create_transport() Transport
+    class EmailFactory {
+        +create_notification() Notification
     }
-    class SeaLogistics {
-        +create_transport() Transport
+    class SmsFactory {
+        +create_notification() Notification
     }
-    class Transport {
+    class Notification {
         <<interface>>
-        +deliver()*
+        +send(message: String)*
     }
-    class Truck {
-        +deliver()
+    class EmailNotification {
+        +send(message: String)
     }
-    class Ship {
-        +deliver()
+    class SmsNotification {
+        +send(message: String)
     }
 
-    Logistics <|-- RoadLogistics
-    Logistics <|-- SeaLogistics
-    Transport <|-- Truck
-    Transport <|-- Ship
-    RoadLogistics ..> Truck : створює
-    SeaLogistics ..> Ship : створює
+    NotificationFactory <|-- EmailFactory
+    NotificationFactory <|-- SmsFactory
+    Notification <|.. EmailNotification
+    Notification <|.. SmsNotification
+    EmailFactory ..> EmailNotification : створює
+    SmsFactory ..> SmsNotification : створює
 ```
+
 ---
 
-## 2. Структурний шаблон: Адаптер (Adapter)
+## 2. Структурний: Адаптер (Adapter)
+
+**Приклад: Робота з датчиками температури (Fahrenheit to Celsius)**
 
 ### Проблема
 
-Ви маєте додаток для аналізу фондового ринку, який отримує дані у форматі XML. Ви хочете інтегрувати круту сторонню бібліотеку для аналітики, але вона приймає дані лише у форматі JSON. Їхні інтерфейси несумісні.
+Ви пишете систему моніторингу погоди, яка працює в **Цельсіях (C)**. Ви купили новий крутий датчик з США, але він видає дані тільки у **Фаренгейтах (F)**. Ви не можете змінити код датчика, а переписувати всю систему під Фаренгейти — погана ідея.
 
 ### Ідея реалізації
 
-Адаптер виступає як перекладач. Він обертає об'єкт, який має незручний інтерфейс, і надає клієнту зрозумілий інтерфейс, перетворюючи виклики та дані "на льоту".
+Створити Адаптер, який "обгорне" американський датчик і буде автоматично конвертувати градуси при виклику.
 
-### Код реалізації (Python)
+### Код (Python)
 
 ```python
-class XMLData:
-    """Стара система або сторонній сервіс, що видає XML."""
-    def get_xml_data(self) -> str:
-        return "<data><value>100</value></data>"
+class USASensor:
+    """Клас, який ми не можемо змінити (Adaptee)."""
+    def get_temperature_f(self) -> float:
+        return 86.0  # Це 30 градусів Цельсія
 
-class JSONAnalyticsLib:
-    """Сучасна бібліотека, яка хоче JSON."""
-    def analyze_json(self, json_str: str):
-        print(f"Аналіз даних: {json_str}")
+class SensorInterface:
+    """Інтерфейс, який очікує наша система (Target)."""
+    def get_temperature_c(self) -> float:
+        pass
 
-class XmlToJsonAdapter:
-    """Адаптер, що робить XML сумісним з JSON-бібліотекою."""
-    def __init__(self, xml_source: XMLData):
-        self.xml_source = xml_source
+class TemperatureAdapter(SensorInterface):
+    """Адаптер, що робить магію конвертації."""
+    def __init__(self, usa_sensor: USASensor):
+        self.usa_sensor = usa_sensor
 
-    def request_analysis(self, analytics_lib: JSONAnalyticsLib):
-        xml_content = self.xml_source.get_xml_data()
-        value = xml_content.split("<value>")[1].split("</value>")[0]
-        json_data = f'{{"value": {value}}}'
-        
-        analytics_lib.analyze_json(json_data)
+    def get_temperature_c(self) -> float:
+        temp_f = self.usa_sensor.get_temperature_f()
+        return (temp_f - 32) * 5 / 9
 
-xml_source = XMLData()
-analytics = JSONAnalyticsLib()
-adapter = XmlToJsonAdapter(xml_source)
+old_sensor = USASensor()
+adapter = TemperatureAdapter(old_sensor)
 
-print("Робота адаптера:")
-adapter.request_analysis(analytics)
+print(f"Система отримала: {adapter.get_temperature_c()}°C")
 
 ```
 
-### Де застосовувати
-
-* **Інтеграція legacy-коду:** Коли потрібно змусити старий код працювати з новим без його повної переробки.
-* **Робота з сторонніми API:** Коли формат даних сервісу не збігається з внутрішніми стандартами вашого проекту.
+**Де застосовувати:** При підключенні сторонніх бібліотек, роботі зі старим кодом (legacy) або пристроями з різними одиницями виміру.
 ```mermaid
 classDiagram
-    class Client {
-    }
-    class TargetInterface {
+    class SensorInterface {
         <<interface>>
-        +request_analysis()
+        +get_temperature_c()* Float
     }
-    class XmlToJsonAdapter {
-        -xml_source: XMLData
-        +request_analysis()
+    class TemperatureAdapter {
+        -usa_sensor: USASensor
+        +get_temperature_c() Float
     }
-    class XMLData {
-        +get_xml_data()
+    class USASensor {
+        +get_temperature_f() Float
     }
 
-    Client --> TargetInterface
-    TargetInterface <|.. XmlToJsonAdapter
-    XmlToJsonAdapter o-- XMLData : адаптує
+    SensorInterface <|.. TemperatureAdapter
+    TemperatureAdapter o-- USASensor : використовує (адаптує)
 ```
+
 ---
 
-## 3. Поведінковий шаблон: Стратегія (Strategy)
+## 3. Поведінковий: Стратегія (Strategy)
+
+**Приклад: Система знижок в інтернет-магазині**
 
 ### Проблема
 
-У вас є навігатор. Він може будувати маршрут для авто. Ви додаєте пішохідний маршрут, потім маршрут для велосипеда, а згодом — для громадського транспорту. Клас навігатора стає величезним, заповненим операторами `if-else` або `switch`.
+У вас є кошик товарів. Ви хочете застосовувати різні знижки: **Звичайна** (без знижок), **Святкова** (-20%) та **VIP** (-50%). Якщо писати це через `if-else`, то при додаванні нової акції "Чорна п'ятниця" вам доведеться лізти в логіку кошика.
 
 ### Ідея реалізації
 
-Шаблон виносить алгоритми в окремі класи ("стратегії"). Об'єкт контексту (навігатор) просто зберігає посилання на одну зі стратегій і делегує їй роботу. Ви можете змінювати стратегію прямо під час виконання програми.
+Кожна знижка — це окремий клас-стратегія. Кошик просто викликає метод `apply_discount()`, не знаючи, як саме він рахується.
 
-### Код реалізації (Python)
+### Код (Python)
 
 ```python
 from abc import ABC, abstractmethod
 
 
-class RouteStrategy(ABC):
+class DiscountStrategy(ABC):
     @abstractmethod
-    def build_route(self, start: str, end: str):
+    def calculate(self, price: float) -> float:
         pass
 
+class NoDiscount(DiscountStrategy):
+    def calculate(self, price): return price
 
-class RoadStrategy(RouteStrategy):
-    def build_route(self, start, end):
-        return f"Маршрут дорогами від {start} до {end} (15 хв)"
+class HolidayDiscount(DiscountStrategy):
+    def calculate(self, price): return price * 0.8
 
-class WalkingStrategy(RouteStrategy):
-    def build_route(self, start, end):
-        return f"Пішохідна стежка від {start} до {end} (45 хв)"
+class VipDiscount(DiscountStrategy):
+    def calculate(self, price): return price * 0.5
 
+class Order:
+    def __init__(self, amount: float, strategy: DiscountStrategy):
+        self.amount = amount
+        self.strategy = strategy
 
-class Navigator:
-    def __init__(self, strategy: RouteStrategy):
-        self._strategy = strategy
+    def set_strategy(self, strategy: DiscountStrategy):
+        self.strategy = strategy
 
-    def set_strategy(self, strategy: RouteStrategy):
-        self._strategy = strategy
-
-    def execute_route((self, start, end)):
-        print(self._strategy.build_route(start, end))
+    def get_final_price(self):
+        return self.strategy.calculate(self.amount)
 
 
-nav = Navigator(RoadStrategy())
-print("На машині:")
-nav.execute_route("Центр", "Вокзал")
+order = Order(1000, NoDiscount())
+print(f"Звичайна ціна: {order.get_final_price()} грн")
 
-print("\nЗмінюємо план на прогулянку:")
-nav.set_strategy(WalkingStrategy())
-nav.execute_route("Центр", "Вокзал")
+order.set_strategy(HolidayDiscount())
+print(f"Ціна на свята: {order.get_final_price()} грн")
 
 ```
 
-### Де застосовувати
-
-* **Варіативність алгоритмів:** Коли вам потрібно використовувати різні версії алгоритму залежно від ситуації (наприклад, різні способи сортування даних або методи аутентифікації).
-* **Очищення коду від розгалужень:** Якщо ви бачите багато `if` для вибору поведінки об'єкта.
-
+**Де застосовувати:** Системи розрахунку податків, методи сортування даних, різні алгоритми стиснення файлів.
 ```mermaid
 classDiagram
-    class Navigator {
-        -strategy: RouteStrategy
-        +set_strategy(strategy: RouteStrategy)
-        +execute_route()
+    class Order {
+        -amount: Float
+        -strategy: DiscountStrategy
+        +set_strategy(strategy: DiscountStrategy)
+        +get_final_price() Float
     }
-    class RouteStrategy {
+    class DiscountStrategy {
         <<interface>>
-        +build_route()*
+        +calculate(price: Float)* Float
     }
-    class RoadStrategy {
-        +build_route()
+    class NoDiscount {
+        +calculate(price: Float) Float
     }
-    class WalkingStrategy {
-        +build_route()
+    class HolidayDiscount {
+        +calculate(price: Float) Float
+    }
+    class VipDiscount {
+        +calculate(price: Float) Float
     }
 
-    Navigator o-- RouteStrategy : використовує
-    RouteStrategy <|-- RoadStrategy
-    RouteStrategy <|-- WalkingStrategy
+    Order o-- DiscountStrategy : агрегує
+    DiscountStrategy <|.. NoDiscount
+    DiscountStrategy <|.. HolidayDiscount
+    DiscountStrategy <|.. VipDiscount
 ```
+
 ---
 
-## Результати роботи прикладів
 
-1. **Фабричний метод:** Дозволяє системі бути незалежною від того, як створюються її продукти. При додаванні "Авіаперевезень" нам не потрібно змінювати існуючі класи `RoadLogistics` чи `SeaLogistics`.
-2. **Адаптер:** Успішно перетворив внутрішній "несумісний" формат `XML` у `JSON`, що дозволило використати аналітичну бібліотеку без зміни її коду.
-3. **Стратегія:** Програма змінила спосіб розрахунку маршруту миттєво через метод `set_strategy`, що робить систему дуже гнучкою.
+Чи потрібно підготувати для вас структуру README файлу, щоб ви могли просто вставити туди ці описи та код?
